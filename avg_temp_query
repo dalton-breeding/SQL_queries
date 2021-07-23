@@ -1,0 +1,51 @@
+--The timestamps for this dataset are not consistent in their configuration. I need to extract the year and drop all other timestamp data.
+
+--First, I isolate rows with (yyyy-mm-dd) timestamps. In this step, I also filter out NULL values in the AverageTemperature column.
+
+WITH left_year AS(
+	SELECT dt AS original_date,
+			TRY_CAST(LEFT(dt,4) AS int) AS year,
+			country,
+			state,
+			AverageTemperature
+	FROM Global_temps..GlobalTempsByState
+	WHERE LEFT(dt,4) NOT LIKE '%/%' AND LEFT(dt,4) NOT LIKE '%-%' AND AverageTemperature IS NOT NULL),
+
+--Next, I repeat the process for (mm-dd-yyyy) and (dd-mm-yyyy) timestamps.
+
+right_year AS (
+	SELECT dt AS original_date,
+			TRY_CAST(RIGHT(dt,4) AS int) AS year,
+			country,
+			state,
+			AverageTemperature
+	FROM Global_temps..GlobalTempsByState
+	WHERE RIGHT(dt,4) NOT LIKE '%/%' AND RIGHT(dt,4) NOT LIKE '%-%' AND AverageTemperature IS NOT NULL),
+
+--I combine both tables with UNION ALL to ensure that no data is lost.
+
+clean_data AS (
+	SELECT year,
+			country,
+			state,
+			AverageTemperature
+	FROM left_year
+
+	UNION ALL
+
+	SELECT year,
+			country,
+			state,
+			AverageTemperature
+	FROM right_year)
+
+--I find the average yearly temperature in each state. This table will be used for visualization in Tableau.
+
+SELECT year,
+		country,
+		state,
+		AVG(AverageTemperature) AS average_annual_temp
+FROM clean_data
+WHERE year >= 1860
+GROUP BY year, country, state
+ORDER BY country, state, year
