@@ -1,0 +1,52 @@
+--DATA EXPLORATION
+
+--How many people have contracted COVID-19 as a percentage of their nation's population?
+--How many have died?
+--What is the COVID death rate amongst those infected?
+--What percentage of the total population have perished due to COVID-19?
+--How many people are vaccinated?
+--What percentage of the total population is fully vaccinated?
+
+
+WITH t1 AS(
+	SELECT cd.location location,
+			cd.date date,
+			cd.population population,
+			cd.total_cases total_cases,
+			cd.total_deaths total_deaths,
+			CASE WHEN cv.new_vaccinations IS NULL THEN '0'
+			ELSE cv.new_vaccinations END AS new_vaxxes,
+			(cd.total_cases/cd.population)*100 AS percent_infected,
+			(cd.total_deaths/cd.total_cases)*100 AS infected_death_rate,
+			(cd.total_deaths/cd.population)*100 AS total_pop_death_percent
+	FROM COVID..CovidDeaths cd
+	JOIN COVID..CovidVaxxes cv
+	ON cd.location = cv.location AND cd.date = cv.date
+	WHERE cd.continent IS NOT NULL
+	)
+
+SELECT location,
+		date,
+		population,
+		total_cases,
+		total_deaths,
+		new_vaxxes,
+		SUM(CAST(new_vaxxes AS int)) OVER (PARTITION BY location ORDER BY date) AS total_vaxxes,
+		percent_infected,
+		infected_death_rate,
+		total_pop_death_percent,
+		(SUM(CAST(new_vaxxes AS int)) OVER (PARTITION BY location ORDER BY date) / population)*100 AS vaccinated_percent
+FROM t1
+ORDER BY 1,2
+
+--For the visualization in Tableau, I need to aggregate some of the data from T1.
+
+SELECT location,
+		MAX(total_cases) total_cases,
+		MAX(total_deaths)total_deaths,
+		SUM(CAST(new_vaxxes AS int)) total_vaxxes
+FROM t1
+GROUP BY location
+ORDER BY 1,2
+
+ 
